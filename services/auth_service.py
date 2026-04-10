@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -20,23 +20,22 @@ SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_change_this")
 ALGORITHM  = os.getenv("ALGORITHM", "HS256")
 EXPIRE_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
-# bcrypt password context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # JWT bearer scheme — reads Authorization: Bearer <token>
 bearer_scheme = HTTPBearer()
-
 
 # ── PASSWORD HELPERS ──
 
 def hash_password(plain: str) -> str:
-    """Hashes a plain text password using bcrypt."""
-    return pwd_context.hash(plain)
-
+    """Hashes a plain text password using bcrypt natively."""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(plain.encode('utf-8'), salt).decode('utf-8')
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Checks a plain password against a stored bcrypt hash."""
-    return pwd_context.verify(plain, hashed)
+    """Checks a plain password against a stored bcrypt hash natively."""
+    try:
+        return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
+    except ValueError:
+        return False
 
 
 # ── JWT HELPERS ──
@@ -87,9 +86,6 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="User no longer exists.")
 
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is deactivated.")
-
     return user
 
 
@@ -125,9 +121,6 @@ def login_user(email: str, password: str, db: Session) -> dict:
 
     if not user or not verify_password(password, user.password):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is deactivated.")
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}

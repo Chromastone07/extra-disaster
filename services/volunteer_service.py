@@ -8,16 +8,16 @@ VALID_ASSIGNMENT_STATUSES = {"assigned", "in_progress", "completed"}
 
 # ── VOLUNTEERS ──
 
-def register_volunteer(user_id: int, skills: str, db: Session):
+def register_volunteer(user_id: int, skills: str, location: str, db: Session):
     """
-    Registers a user as a volunteer.
+    Registers a user as a volunteer and stores their coordinates.
     A user can only register once — raises 400 if already registered.
     """
     existing = db.query(Volunteer).filter(Volunteer.user_id == user_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Already registered as a volunteer.")
 
-    vol = Volunteer(user_id=user_id, skills=skills, availability=True)
+    vol = Volunteer(user_id=user_id, skills=skills, location=location, availability=True)
     db.add(vol)
     db.commit()
     db.refresh(vol)

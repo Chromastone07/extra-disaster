@@ -40,10 +40,7 @@ def report(
 
 
 @router.get("/reports", response_model=List[DisasterResponse])
-def get_disasters(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+def get_disasters(db: Session = Depends(get_db)):
     """
     GET /disaster/reports
     Returns all disaster reports. Newest first.
@@ -94,10 +91,7 @@ def help_request(
 
 
 @router.get("/help", response_model=List[HelpRequestResponse])
-def get_requests(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+def get_requests(db: Session = Depends(get_db)):
     """
     GET /disaster/help
     Returns all help requests. Newest first.

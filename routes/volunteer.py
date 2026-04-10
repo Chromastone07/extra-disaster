@@ -9,6 +9,9 @@ from schemas.volunteer import (
     AssignmentCreate, AssignmentResponse, AssignmentStatusUpdate,
     ResourceCreate, ResourceResponse, ResourceUpdate
 )
+from pydantic import BaseModel
+class ApprovalUpdate(BaseModel):
+    status: str
 from services.volunteer_service import (
     register_volunteer, get_all_volunteers, update_volunteer_availability,
     assign_volunteer, get_all_assignments, update_task_status,
@@ -34,6 +37,7 @@ def register(
     return register_volunteer(
         user_id=current_user.id,
         skills=data.skills,
+        location=data.location,
         db=db
     )
 
@@ -43,10 +47,13 @@ def list_volunteers(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """GET /volunteers/ — All registered volunteers. Admin only."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required.")
-    return get_all_volunteers(db)
+    """GET /volunteers/ — All registered volunteers. Admin sees all, Civilians see their own."""
+    if current_user.role == "admin":
+        return get_all_volunteers(db)
+    else:
+        from models.volunteer import Volunteer
+        myself = db.query(Volunteer).filter(Volunteer.user_id == current_user.id).first()
+        return [myself] if myself else []
 
 
 @router.patch("/{volunteer_id}/availability", response_model=VolunteerResponse)
@@ -58,6 +65,27 @@ def toggle_availability(
 ):
     """PATCH /volunteers/{id}/availability — Update volunteer availability."""
     return update_volunteer_availability(volunteer_id, data.availability, db)
+
+
+@router.patch("/{volunteer_id}/approve", response_model=VolunteerResponse)
+def approve_volunteer(
+    volunteer_id: int,
+    data: ApprovalUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """PATCH /volunteers/{id}/approve — Admin resolves pending user registration."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    
+    from models.volunteer import Volunteer
+    vol = db.query(Volunteer).filter(Volunteer.id == volunteer_id).first()
+    if not vol:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+    vol.approval_status = data.status
+    db.commit()
+    db.refresh(vol)
+    return vol
 
 
 # ── ASSIGNMENTS ──
@@ -108,9 +136,7 @@ def create_resource(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """POST /volunteers/resources — Add a new resource. Admin only."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required.")
+    """POST /volunteers/resources — Any user adds a new resource (defaults to pending pending approval)."""
     return manage_resources("create", db, resource_data=data.model_dump())
 
 
@@ -146,3 +172,22 @@ def delete_resource(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required.")
     return manage_resources("delete", db, resource_id=resource_id)
+
+@router.patch("/resources/{resource_id}/approve", response_model=ResourceResponse)
+def approve_resource(
+    resource_id: int,
+    data: ApprovalUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """PATCH /volunteers/resources/{id}/approve — Admin resolves pending resource."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    from models.volunteer import Resource
+    res = db.query(Resource).filter(Resource.id == resource_id).first()
+    if not res:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    res.approval_status = data.status
+    db.commit()
+    db.refresh(res)
+    return res

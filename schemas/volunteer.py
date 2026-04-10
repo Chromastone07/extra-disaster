@@ -7,6 +7,7 @@ from typing import Optional
 
 class VolunteerCreate(BaseModel):
     skills: Optional[str] = None      # comma-separated e.g. "medical, driving"
+    location: Optional[str] = None    # "lat,lng"
 
 
 class VolunteerAvailabilityUpdate(BaseModel):
@@ -18,6 +19,8 @@ class VolunteerResponse(BaseModel):
     user_id:      int
     availability: bool
     skills:       Optional[str]
+    location:     Optional[str]
+    approval_status: str
     created_at:   datetime
 
     class Config:
@@ -65,6 +68,7 @@ class ResourceResponse(BaseModel):
     type:        str
     quantity:    int
     location_id: Optional[int]
+    approval_status: str
     created_at:  datetime
 
     class Config:

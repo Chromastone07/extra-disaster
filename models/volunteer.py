@@ -14,6 +14,8 @@ class Volunteer(Base):
     user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     availability = Column(Boolean, default=True)      # True = available for assignment
     skills       = Column(String, nullable=True)      # e.g. "medical, driving, rescue"
+    location     = Column(String, nullable=True)      # Active GPS coordinate storage
+    approval_status = Column(String, default="pending") # "pending" | "approved" | "denied"
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -43,4 +45,5 @@ class Resource(Base):
     type        = Column(String, nullable=False)      # e.g. "food", "medical", "equipment"
     quantity    = Column(Integer, default=0)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    approval_status = Column(String, default="pending") # "pending" | "approved" | "denied"
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
